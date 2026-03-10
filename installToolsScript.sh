@@ -5,7 +5,7 @@ set -e
 
 # 1.install java 
 sudo apt update -y
-sudo apt install fontconfig openjdk-21-jre
+sudo apt install -y fontconfig openjdk-21-jre
 java -version
 
 # 2.install jenkins 
