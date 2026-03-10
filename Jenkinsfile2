@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    tools {
-        jdk 'jdk17'
-        nodejs 'node23'
-    }
-
     environment {
         SCANNER_HOME = tool 'sonar-scanner' 
         DOCKER_IMAGE_NAME = 'akhilkumar119/bms'
