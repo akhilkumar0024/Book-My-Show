@@ -58,7 +58,7 @@ sudo apt-get install trivy -y
 curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.30.14/2026-02-27/bin/linux/amd64/kubectl
 chmod +x ./kubectl
 sudo mv ./kubectl /usr/local/bin/kubectl
-kubectl version 
+kubectl version --client
 #install kubectl completion
 kubectl completion bash | sudo tee /etc/bash_completion.d/kubectl
 
