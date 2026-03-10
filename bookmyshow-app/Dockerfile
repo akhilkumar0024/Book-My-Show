@@ -1,27 +1,25 @@
-# Use Node.js 18 (or your Jenkins-configured version)
 FROM node:18
 
-# Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
 COPY package.json package-lock.json ./
 
-# Force install a compatible PostCSS version to fix the issue
+# 1. Force install the missing watchers that are causing the crash
+RUN npm install chokidar@3.5.3 watchpack-chokidar2@2.0.1 --legacy-peer-deps
+
+# 2. Your existing PostCSS fix
 RUN npm install postcss@8.4.21 postcss-safe-parser@6.0.0 --legacy-peer-deps
 
-# Install dependencies
-RUN npm install
+RUN npm install --legacy-peer-deps
 
-# Copy the entire project
 COPY . .
 
-# Expose port 3000
 EXPOSE 3000
 
-# Set environment variable to prevent OpenSSL errors
 ENV NODE_OPTIONS=--openssl-legacy-provider
 ENV PORT=3000
 
-# Start the application
+# 3. Add this: Tells React not to try and open a browser (which crashes in Docker)
+ENV BROWSER=none
+
 CMD ["npm", "start"]
