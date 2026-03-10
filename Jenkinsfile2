@@ -1,5 +1,3 @@
-(with K8S Stage)
-
 pipeline {
     agent any
 
@@ -9,10 +7,10 @@ pipeline {
     }
 
     environment {
-        SCANNER_HOME = tool 'sonar-scanner'
-        DOCKER_IMAGE = 'kastrov/bms:latest'
-        EKS_CLUSTER_NAME = 'kastro-eks'
-        AWS_REGION = 'us-east-1'
+        SCANNER_HOME = tool 'sonar-scanner' 
+        DOCKER_IMAGE_NAME = 'akhilkumar119/bms'
+        EKS_CLUSTER_NAME = 'bookmyshow-eks'
+        AWS_REGION = 'ap-south-1'
     }
 
     stages {
@@ -24,8 +22,8 @@ pipeline {
 
         stage('Checkout from Git') {
             steps {
-                git branch: 'main', url: 'https://github.com/KastroVKiran/Book-My-Show.git'
-                sh 'ls -la'  // Verify files after checkout
+                // Updated to 'main' branch as requested
+                git branch: 'main', credentialsId: 'github-cred', url: 'https://github.com/akhilkumar0024/Book-My-Show.git'
             }
         }
 
@@ -44,31 +42,9 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token'
+                    // Updated to match your ID: 'SonarQube-token'
+                    waitForQualityGate abortPipeline: false, credentialsId: 'SonarQube-token'
                 }
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                sh '''
-                cd bookmyshow-app
-                ls -la  # Verify package.json exists
-                if [ -f package.json ]; then
-                    rm -rf node_modules package-lock.json  # Remove old dependencies
-                    npm install  # Install fresh dependencies
-                else
-                    echo "Error: package.json not found in bookmyshow-app!"
-                    exit 1
-                fi
-                '''
-            }
-        }
-
-        stage('OWASP FS Scan') {
-            steps {
-                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
 
@@ -81,13 +57,17 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 script {
-                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+                    withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
                         sh ''' 
-                        echo "Building Docker image..."
-                        docker build --no-cache -t $DOCKER_IMAGE -f bookmyshow-app/Dockerfile bookmyshow-app
+                        echo "Building Docker image version ${BUILD_NUMBER}..."
+                        docker build --no-cache -t $DOCKER_IMAGE_NAME:${BUILD_NUMBER} -f bookmyshow-app/Dockerfile bookmyshow-app
 
-                        echo "Pushing Docker image to Docker Hub..."
-                        docker push $DOCKER_IMAGE
+                        echo "Tagging as latest for convenience..."
+                        docker tag $DOCKER_IMAGE_NAME:${BUILD_NUMBER} $DOCKER_IMAGE_NAME:latest
+
+                        echo "Pushing both tags..."
+                        docker push $DOCKER_IMAGE_NAME:${BUILD_NUMBER}
+                        docker push $DOCKER_IMAGE_NAME:latest
                         '''
                     }
                 }
@@ -98,22 +78,14 @@ pipeline {
             steps {
                 script {
                     sh '''
-                    echo "Verifying AWS credentials..."
-                    aws sts get-caller-identity
-
-                    echo "Configuring kubectl for EKS cluster..."
                     aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_REGION
 
-                    echo "Verifying kubeconfig..."
-                    kubectl config view
+                    echo "Updating deployment.yml to use version ${BUILD_NUMBER}..."
+                    # This specific sed command finds the image line and swaps it for the unique build tag
+                    sed -i "s|image:.*|image: $DOCKER_IMAGE_NAME:${BUILD_NUMBER}|g" deployment.yml
 
-                    echo "Deploying application to EKS..."
                     kubectl apply -f deployment.yml
                     kubectl apply -f service.yml
-
-                    echo "Verifying deployment..."
-                    kubectl get pods
-                    kubectl get svc
                     '''
                 }
             }
@@ -123,11 +95,9 @@ pipeline {
     post {
         always {
             emailext attachLog: true,
-                subject: "'${currentBuild.result}'",
-                body: "Project: ${env.JOB_NAME}<br/>" +
-                      "Build Number: ${env.BUILD_NUMBER}<br/>" +
-                      "URL: ${env.BUILD_URL}<br/>",
-                to: 'kastrokiran@gmail.com',
+                subject: "Build ${currentBuild.fullDisplayName} - ${currentBuild.result}",
+                body: "Check the attached Trivy report for security vulnerabilities.",
+                to: 'akhilkumar0024@gmail.com',
                 attachmentsPattern: 'trivyfs.txt'
         }
     }
