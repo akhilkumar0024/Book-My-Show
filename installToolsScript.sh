@@ -1,5 +1,8 @@
 #/bin/bash
 
+# Exit on any error
+set -e
+
 # 1.install java 
 sudo apt update -y
 sudo apt install fontconfig openjdk-21-jre
@@ -43,7 +46,7 @@ sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin dock
 
 # Add jenkins to Docker group
 sudo usermod -aG docker jenkins
-
+sudo usermod -aG docker $USER
 # 5.Install Trivy 
 sudo apt-get install wget gnupg -y
 wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
@@ -77,8 +80,10 @@ sudo systemctl enable docker
 sudo systemctl restart docker
 
 # 9.Run SonarQube
+sleep 15
 docker run -d --name sonarQube -p 9000:9000 sonarqube:lts-community
 
 # Installation completed
 # Jenkins initial Password
+sleep 15
 sudo cat /var/lib/jenkins/secrets/initialAdminPassword
